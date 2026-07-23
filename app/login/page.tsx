@@ -9,11 +9,11 @@ import { BrandPanel, TrustSeal } from "@/components/auth/BrandPanel";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const session = await auth();
   if (session?.user) redirect("/dashboard");
-  const { error } = await searchParams;
+  const { error, ok } = await searchParams;
 
   const googleHabilitado = Boolean(process.env.AUTH_GOOGLE_ID);
   const magicLinkHabilitado = Boolean(process.env.AUTH_RESEND_KEY);
@@ -27,6 +27,11 @@ export default async function LoginPage({
           <h1 className="font-display text-2xl font-semibold text-text">Inicia sesión</h1>
           <p className="mb-6 mt-1.5 text-sm text-text-2">Bienvenida de vuelta a tu consulta.</p>
 
+          {ok === "password-reset" && (
+            <p className="mb-4 rounded-ctl border border-success-brd bg-success-soft p-3 text-sm text-success">
+              Contraseña actualizada. Inicia sesión con la nueva.
+            </p>
+          )}
           {error && (
             <p className="mb-4 rounded-ctl border border-danger-brd bg-danger-soft p-3 text-sm text-danger">
               {error === "CredentialsSignin"
@@ -58,7 +63,12 @@ export default async function LoginPage({
               <Input type="email" name="email" required placeholder="tu@correo.com" />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-text">Contraseña</span>
+              <span className="flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-text">Contraseña</span>
+                <Link href="/recuperar" className="text-xs font-semibold text-primary hover:underline">
+                  ¿La olvidaste?
+                </Link>
+              </span>
               <Input type="password" name="password" required placeholder="••••••••••" />
             </label>
             <Button type="submit">Entrar a mi consulta</Button>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import { crearTokenReset, urlReset } from "@/lib/resetTokens";
 
 const EstadoInput = z.object({
   userId: z.string().min(1),
@@ -52,6 +53,30 @@ export async function asignarTier(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath(`/admin/cuentas/${userId}`);
+}
+
+const ResetInput = z.object({
+  userId: z.string().min(1),
+});
+
+/**
+ * Genera un link de restablecimiento de contraseña para compartir manualmente
+ * (p. ej. por WhatsApp). Un solo uso, vigencia de 1 hora.
+ */
+export async function generarLinkReset(formData: FormData) {
+  await requireAdmin();
+
+  const parsed = ResetInput.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false as const, error: "Datos inválidos" };
+
+  const user = await prisma.user.findUnique({
+    where: { id: parsed.data.userId },
+    select: { email: true },
+  });
+  if (!user) return { ok: false as const, error: "Cuenta no encontrada" };
+
+  const token = await crearTokenReset(user.email);
+  return { ok: true as const, url: await urlReset(user.email, token) };
 }
 
 const NotaInput = z.object({

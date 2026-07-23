@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { ResetLinkAdmin } from "@/components/ResetLinkAdmin";
 
 export default async function CuentaAdminPage({
   params,
@@ -207,6 +208,14 @@ export default async function CuentaAdminPage({
                 Guardar nota
               </Button>
             </form>
+          </Card>
+
+          <Card className="p-4.5">
+            <div className="mb-2.5 text-sm font-bold text-text">Contraseña</div>
+            <p className="mb-3 text-[12.5px] text-text-3">
+              Si olvidó su contraseña, genera un link de restablecimiento y compárteselo.
+            </p>
+            <ResetLinkAdmin userId={user.id} />
           </Card>
 
           {!esPropia && (
