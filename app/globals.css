@@ -1,26 +1,147 @@
+/* Planify — tokens de diseño · Tailwind CSS 4 · dirección 1c "Ciruela nutricional"
+   Modo oscuro: clase .dark en <html> (paridad total de tokens). */
 @import "tailwindcss";
 
+/* Habilita variantes `dark:` basadas en la clase .dark (Tailwind 4). Casi no se usan:
+   los colores son tokens semánticos que se voltean solos al cambiar .dark. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Superficies y texto */
+  --bg: #FBF7F5;            /* fondo app (marfil rosado) */
+  --surface: #FFFFFF;       /* cards, tablas, modales */
+  --surface-2: #F6F0EE;     /* sidebar, thead */
+  --surface-3: #F1E9E6;     /* hover de fila, wells, badge neutro */
+  --border: #E9E2E0;
+  --border-strong: #DCD2D8; /* inputs, botón secundario */
+  --text: #33202C;          /* 12.9:1 sobre surface */
+  --text-2: #6E5A66;        /* 5.6:1 */
+  --text-3: #8C7A85;        /* meta ≥12px */
+  /* Marca */
+  --primary: #7A3B5E;
+  --primary-hover: #5E2C48;
+  --on-primary: #FFFEFE;    /* 6.9:1 sobre primary */
+  --primary-soft: #F5EAF0;
+  --primary-soft-brd: #DEBCCE;
+  --brand-panel: #4C2139;   /* panel de marca (login) — invariante entre modos */
+  --accent: #C2603E;        /* terracota: gráficas, IA */
+  --accent-soft: #F9EFE9;
+  /* Semánticos */
+  --success: #4A7C50;  --success-soft: #E9F2EA;  --success-brd: #C9E0CC;
+  --warning: #96551F;  --warning-soft: #F8EDDE;  --warning-brd: #EBD7B8;
+  --danger:  #B5453C;  --danger-soft: #F9E9E7;   --danger-brd: #EED0CC;
+  --info:    #4A63A8;  --info-soft: #EBEFF8;     --info-brd: #CCD6EC;
+  /* Estado clínico = alias de semánticos */
+  --range-in: var(--success);
+  --range-out: var(--warning);
+  --range-critical: var(--danger);
+}
+
+.dark {
+  --bg: #1B1418;
+  --surface: #251C21;
+  --surface-2: #221A1F;
+  --surface-3: #2E242A;
+  --border: #3B2F36;
+  --border-strong: #4A3C43;
+  --text: #F1EAEE;          /* 14.2:1 */
+  --text-2: #C4B5BD;
+  --text-3: #9A8B93;
+  --primary: #C77BA0;       /* 5.1:1 sobre surface */
+  --primary-hover: #D9A2BE;
+  --on-primary: #2B0E1F;
+  --primary-soft: #3A2430;
+  --primary-soft-brd: #573B4A;
+  --brand-panel: #4C2139;
+  --accent: #E08B63;
+  --accent-soft: #3C2A22;
+  --success: #7FB585;  --success-soft: #243026;  --success-brd: #3A5140;
+  --warning: #DEA860;  --warning-soft: #3A2E1C;  --warning-brd: #5C4826;
+  --danger:  #E08078;  --danger-soft: #3B2422;   --danger-brd: #5E3532;
+  --info:    #8FA5DC;  --info-soft: #242B3D;     --info-brd: #3A4560;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-*: initial; /* elimina la paleta default de Tailwind */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-brd: var(--primary-soft-brd);
+  --color-brand-panel: var(--brand-panel);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-brd: var(--success-brd);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-brd: var(--warning-brd);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-brd: var(--danger-brd);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-brd: var(--info-brd);
+  --color-range-in: var(--range-in);
+  --color-range-out: var(--range-out);
+  --color-range-critical: var(--range-critical);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Fuentes self-hosted vía next/font (ver app/layout.tsx) */
+  --font-display: var(--font-bricolage), sans-serif; /* solo títulos */
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif; /* UI y cuerpo */
+  --font-mono: var(--font-plex-mono), monospace; /* cifras clínicas, tabular-nums */
+
+  --radius-chip: 6px;   /* checkbox, chips pequeños */
+  --radius-ctl: 10px;   /* inputs, selects */
+  --radius-card: 14px;  /* cards, modales, banners */
+  --radius-pill: 999px; /* botones, badges, avatares */
+
+  --shadow-sm: 0 1px 2px rgb(58 34 51 / .06);
+  --shadow-md: 0 4px 12px rgb(58 34 51 / .08);
+  --shadow-lg: 0 16px 40px rgb(58 34 51 / .16);
+
+  --spacing: 4px; /* escala 4-8-12-16-24-32-48 */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+/* La vista de impresión (/consultas/[id]/imprimir) siempre en claro,
+   aunque el usuario tenga el tema oscuro activo. */
+@media print {
+  .dark {
+    --bg: #FBF7F5;
+    --surface: #FFFFFF;
+    --surface-2: #F6F0EE;
+    --surface-3: #F1E9E6;
+    --border: #E9E2E0;
+    --border-strong: #DCD2D8;
+    --text: #33202C;
+    --text-2: #6E5A66;
+    --text-3: #8C7A85;
+    --primary: #7A3B5E;
+    --primary-hover: #5E2C48;
+    --on-primary: #FFFEFE;
+    --primary-soft: #F5EAF0;
+    --primary-soft-brd: #DEBCCE;
+    --accent: #C2603E;
+    --accent-soft: #F9EFE9;
+    --success: #4A7C50;  --success-soft: #E9F2EA;  --success-brd: #C9E0CC;
+    --warning: #96551F;  --warning-soft: #F8EDDE;  --warning-brd: #EBD7B8;
+    --danger:  #B5453C;  --danger-soft: #F9E9E7;   --danger-brd: #EED0CC;
+    --info:    #4A63A8;  --info-soft: #EBEFF8;     --info-brd: #CCD6EC;
+  }
 }

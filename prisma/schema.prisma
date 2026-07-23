@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Modelos de Auth.js (no tocar nombres/campos: los usa el PrismaAdapter) ──
+
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String     @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String? // login con email+contraseña (Credentials provider)
+  // Campos propios del nutriólogo
+  cedula        String? // cédula profesional — aparece en el PDF
+  logoUrl       String?
+  estiloPrompt  String? // preferencias de estilo para los planes generados por IA
+  createdAt     DateTime   @default(now())
+  // Administración de la cuenta (panel /admin)
+  role          Role         @default(NUTRIOLOGO)
+  estado        EstadoCuenta @default(ACTIVE)
+  tier          PlanTier     @default(FREE)
+  tierUpdatedAt DateTime?
+  suspendedAt   DateTime?
+  notasAdmin    String?
+  // Suscripción — se llenan desde webhooks de Stripe cuando se integren cobros
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String?
+  subscriptionStatus   String?
+  accounts      Account[]
+  sessions      Session[]
+  pacientes     Paciente[]
+  consultas     Consulta[]
+  solicitudes   Solicitud[]
+}
+
+enum Role {
+  ADMIN
+  NUTRIOLOGO
+}
+
+enum EstadoCuenta {
+  ACTIVE
+  SUSPENDED
+  PENDING // reservado para aprobar registros manualmente en beta
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  ILIMITADO
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ── Dominio ──────────────────────────────────────────────────────────────
+
+model Paciente {
+  id               String     @id @default(cuid())
+  // Aislamiento multi-tenant: todo paciente pertenece a un nutriólogo
+  userId           String
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre           String
+  fechaNacimiento  DateTime
+  genero           Genero
+  email            String?
+  telefono         String?
+  notas            String?
+  consentimientoAt DateTime? // consentimiento de tratamiento de datos de salud
+  createdAt        DateTime   @default(now())
+  consultas        Consulta[]
+
+  @@index([userId])
+}
+
+enum Genero {
+  FEMENINO
+  MASCULINO
+  OTRO
+}
+
+model Consulta {
+  id            String    @id @default(cuid())
+  pacienteId    String
+  paciente      Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Antropometría
+  peso          Float // kg
+  altura        Float // cm
+  cintura       Float?
+  cadera        Float?
+  brazo         Float?
+  grasaCorporal Float? // %
+
+  objetivos     String
+  restricciones String // alergias, condiciones médicas, preferencias
+
+  // Audio (Fase 2)
+  audioUrl      String?
+  transcripcion String?
+
+  // IA
+  planGenerado  Json? // salida cruda del modelo (auditoría)
+  planFinal     Json? // versión editada por el nutriólogo
+  promptVersion String? // qué versión de prompt generó el plan
+  modeloIA      String? // modelo que generó el plan (auditoría)
+  inputTokens   Int?
+  outputTokens  Int?
+
+  aprobadoAt    DateTime? // el PDF solo se exporta si esto no es null
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([pacienteId])
+}
+
+model Solicitud {
+  id             String          @id @default(cuid())
+  // Multi-tenant: cada solicitud pertenece al nutriólogo que la envió
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  titulo         String
+  descripcion    String
+  estado         EstadoSolicitud @default(NUEVA)
+  respuestaAdmin String? // visible para el nutriólogo junto al estado
+  respondidoAt   DateTime?
+  // Análisis de viabilidad con IA (scripts/analizar-solicitudes.mjs)
+  analisisIA     String?
+  veredictoIA    String? // "VIABLE" | "NO_VIABLE" | "REQUIERE_DISENO"
+  respuestaIA    String? // borrador de respuesta al nutriólogo; solo se publica si el admin lo guarda
+  analizadoAt    DateTime?
+  createdAt      DateTime        @default(now())
+
+  @@index([userId])
+  @@index([estado])
+}
+
+enum EstadoSolicitud {
+  NUEVA
+  EN_REVISION
+  APROBADA
+  RECHAZADA
+  IMPLEMENTADA
+}

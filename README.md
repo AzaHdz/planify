@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Planify — MVP (Fase 1)
 
-## Getting Started
+SaaS para nutriólogos: expedientes, consultas y planes alimenticios generados con IA
+(revisados y aprobados por el profesional antes de exportarse).
 
-First, run the development server:
+Guía completa del proyecto: `../MANUAL_DESARROLLO.md`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Next.js 16 (App Router) · React 19 · Tailwind 4 · Prisma 6 + PostgreSQL · Auth.js v5
+(email+contraseña; Google OAuth y magic link activables por env) · IA conmutable:
+OpenAI (`gpt-5-mini`, por defecto) o Claude (`claude-sonnet-5`), ambas con salidas
+estructuradas validadas por el mismo schema Zod (`lib/ai/planSchema.ts`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Setup local
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Base de datos** — cualquiera de las dos:
+   - Postgres de Homebrew ya corriendo (la config actual de `.env.local` apunta ahí), o
+   - `docker compose up -d` y cambia `DATABASE_URL` a `postgresql://planify:planify@localhost:5432/planify`.
 
-## Learn More
+2. **Variables de entorno** — copia `.env.example` a `.env.local` (ya existe una con la DB local
+   y `AUTH_SECRET` generado) y completa:
+   - `OPENAI_API_KEY` — necesario para generar planes (proveedor por defecto, `AI_PROVIDER=openai`).
+   - Para cambiar a Claude: pon `ANTHROPIC_API_KEY` y `AI_PROVIDER=anthropic`.
+   - Login: email + contraseña funciona sin configuración extra (regístrate en `/registro`).
+     Google OAuth (`AUTH_GOOGLE_ID/SECRET`) y magic link (`AUTH_RESEND_KEY`) son opcionales
+     y se activan solos al definir sus variables.
 
-To learn more about Next.js, take a look at the following resources:
+3. **Migraciones y arranque:**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   npx prisma migrate dev
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Flujo del MVP
 
-## Deploy on Vercel
+registro (`/registro`, abierto por ahora — cerrarlo o pasar a invitaciones en Fase 4) → login → /pacientes (alta con consentimiento de datos) → nueva consulta (antropometría +
+objetivos + restricciones) → "Generar plan con IA" → revisar/editar → "Aprobar plan"
+(corre validación aritmética Mifflin-St Jeor en `lib/calculos.ts`) → Exportar PDF
+(`/consultas/[id]/imprimir`, vista de impresión del navegador).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Reglas del código
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Multi-tenant:** toda query de Prisma filtra por `userId` (ver `requireUser()` en `lib/auth.ts`).
+- **Minimización de datos:** a la IA solo viajan datos clínicos, nunca la identidad del paciente
+  (`lib/ai/generarPlan.ts`).
+- **Prompts versionados:** `lib/ai/prompts/plan-v1.ts`; cada consulta guarda `promptVersion`,
+  `modeloIA` y tokens.
+- **Proveedor de IA conmutable:** `lib/ai/generarPlan.ts` despacha a `lib/ai/providers/{openai,anthropic}.ts`
+  según `AI_PROVIDER`; ambos usan el mismo prompt y el mismo schema.
+- El PDF solo se exporta si `aprobadoAt != null`.
