@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { edadEnAnios, imc, clasificacionIMC } from "@/lib/calculos";
 import { fechaCorta } from "@/lib/format";
+import { claveDia, fechaHoraEnZona, hoyClave, inicioDelDia } from "@/lib/fechas";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
@@ -41,6 +42,18 @@ export default async function PacientePage({
     include: { consultas: { orderBy: { createdAt: "desc" } } },
   });
   if (!paciente) notFound();
+
+  // Citas futuras de este paciente, desde el arranque de hoy en México
+  const proximasCitas = await prisma.cita.findMany({
+    where: {
+      userId,
+      pacienteId: paciente.id,
+      estado: { in: ["PROGRAMADA", "CONFIRMADA"] },
+      inicioAt: { gte: inicioDelDia(hoyClave()) },
+    },
+    orderBy: { inicioAt: "asc" },
+    take: 3,
+  });
 
   const consultas = paciente.consultas;
   const ultima = consultas[0];
@@ -118,6 +131,12 @@ export default async function PacientePage({
           )}
         </div>
         <div className="flex gap-2.5">
+          <Link
+            href={`/agenda/nueva?paciente=${paciente.id}`}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
+            Agendar cita
+          </Link>
           <Link href={`/consultas/nueva?paciente=${paciente.id}`} className={buttonVariants({ size: "sm" })}>
             + Nueva consulta
           </Link>
@@ -180,17 +199,41 @@ export default async function PacientePage({
             </Card>
           </div>
 
-          {/* Derecha: historial */}
-          <Card className="overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <span className="font-display text-[15px] font-bold text-text">Historial de consultas</span>
-            </div>
-            {consultas.map((c, i) => (
-              <Link
-                key={c.id}
-                href={`/consultas/${c.id}`}
-                className="flex gap-3 border-b border-border px-5 py-3 transition-colors last:border-0 hover:bg-surface-3"
-              >
+          {/* Derecha: próximas citas + historial */}
+          <div className="flex flex-col gap-4">
+            {proximasCitas.length > 0 && (
+              <Card className="overflow-hidden">
+                <div className="flex items-baseline justify-between border-b border-border px-5 py-4">
+                  <span className="font-display text-[15px] font-bold text-text">Próximas citas</span>
+                  <Link href="/agenda" className="text-xs font-semibold text-primary hover:underline">
+                    Ver agenda
+                  </Link>
+                </div>
+                {proximasCitas.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/agenda?dia=${claveDia(c.inicioAt)}`}
+                    className="flex items-center justify-between gap-3 border-b border-border px-5 py-3 transition-colors last:border-0 hover:bg-surface-3"
+                  >
+                    <span className="font-mono text-[12.5px] tabular-nums text-text-2">
+                      {fechaHoraEnZona(c.inicioAt)}
+                    </span>
+                    {claveDia(c.inicioAt) === hoyClave() && <Badge tone="primary">Hoy</Badge>}
+                  </Link>
+                ))}
+              </Card>
+            )}
+
+            <Card className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <span className="font-display text-[15px] font-bold text-text">Historial de consultas</span>
+              </div>
+              {consultas.map((c, i) => (
+                <Link
+                  key={c.id}
+                  href={`/consultas/${c.id}`}
+                  className="flex gap-3 border-b border-border px-5 py-3 transition-colors last:border-0 hover:bg-surface-3"
+                >
                 <span className={`mt-1.5 size-2 shrink-0 rounded-full ${i === 0 ? "bg-primary" : "bg-primary-soft-brd"}`} />
                 <span className="min-w-0 flex-1">
                   <span className="flex justify-between gap-2">
@@ -212,9 +255,10 @@ export default async function PacientePage({
                     )}
                   </span>
                 </span>
-              </Link>
-            ))}
-          </Card>
+                </Link>
+              ))}
+            </Card>
+          </div>
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonVariants } from "@/components/ui/Button";
 import { LIMITES_TIER } from "@/lib/limits";
+import { claveDia, fechaHoraEnZona, hoyClave, inicioDelDia } from "@/lib/fechas";
 
 export default async function DashboardPage() {
   const { userId, tier } = await requireUser();
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
     totalConsultas,
     pendientes,
     ultimasConsultas,
+    proximasCitas,
   ] = await Promise.all([
     prisma.paciente.count({ where: { userId } }),
     prisma.paciente.count({ where: { userId, createdAt: { gte: inicioMes } } }),
@@ -44,6 +46,18 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
       take: 6,
       include: { paciente: { select: { nombre: true } } },
+    }),
+    // Desde el arranque de hoy en México, no desde "ahora": una cita de esta
+    // mañana que ya pasó sigue siendo la agenda del día.
+    prisma.cita.findMany({
+      where: {
+        userId,
+        estado: { in: ["PROGRAMADA", "CONFIRMADA"] },
+        inicioAt: { gte: inicioDelDia(hoyClave()) },
+      },
+      orderBy: { inicioAt: "asc" },
+      take: 5,
+      include: { paciente: { select: { id: true, nombre: true } } },
     }),
   ]);
 
@@ -164,6 +178,38 @@ export default async function DashboardPage() {
                   </div>
                 );
               })
+            )}
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="flex items-baseline justify-between border-b border-border px-4.5 py-3.5">
+              <span className="font-display text-[15px] font-bold text-text">Próximas citas</span>
+              <Link href="/agenda" className="text-xs font-semibold text-primary hover:underline">
+                Ver agenda
+              </Link>
+            </div>
+            {proximasCitas.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm text-text-3">
+                No tienes citas agendadas.
+              </p>
+            ) : (
+              proximasCitas.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/agenda?dia=${claveDia(c.inicioAt)}`}
+                  className="flex items-center justify-between gap-3 border-b border-border px-4.5 py-3 transition-colors last:border-0 hover:bg-surface-3"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-[13.5px] font-semibold text-text">
+                      {c.paciente.nombre}
+                    </div>
+                    <div className="font-mono text-[11.5px] tabular-nums text-text-3">
+                      {fechaHoraEnZona(c.inicioAt)}
+                    </div>
+                  </div>
+                  {claveDia(c.inicioAt) === hoyClave() && <Badge tone="primary">Hoy</Badge>}
+                </Link>
+              ))
             )}
           </Card>
 

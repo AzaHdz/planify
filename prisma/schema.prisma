@@ -37,6 +37,7 @@ model User {
   pacientes     Paciente[]
   consultas     Consulta[]
   solicitudes   Solicitud[]
+  citas         Cita[]
 }
 
 enum Role {
@@ -106,6 +107,7 @@ model Paciente {
   consentimientoAt DateTime? // consentimiento de tratamiento de datos de salud
   createdAt        DateTime   @default(now())
   consultas        Consulta[]
+  citas            Cita[]
 
   @@index([userId])
 }
@@ -114,6 +116,33 @@ enum Genero {
   FEMENINO
   MASCULINO
   OTRO
+}
+
+model Cita {
+  id          String     @id @default(cuid())
+  pacienteId  String
+  paciente    Paciente   @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  // Aislamiento multi-tenant: toda cita pertenece a un nutriólogo
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Instante en UTC. Se captura y se muestra en America/Mexico_City (lib/fechas.ts):
+  // el servidor de producción corre en UTC y no se puede confiar en su zona local.
+  inicioAt    DateTime
+  duracionMin Int        @default(60)
+  estado      EstadoCita @default(PROGRAMADA)
+  notas       String? // logísticas, no clínicas: motivo, si viene acompañado, etc.
+  createdAt   DateTime   @default(now())
+
+  @@index([userId])
+  @@index([pacienteId])
+  @@index([userId, inicioAt]) // la rejilla mensual filtra por rango de fechas
+}
+
+enum EstadoCita {
+  PROGRAMADA
+  CONFIRMADA
+  CANCELADA
+  COMPLETADA
 }
 
 model Consulta {

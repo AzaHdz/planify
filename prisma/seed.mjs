@@ -84,19 +84,23 @@ async function main() {
     create: { email: DEMO_EMAIL, name: "Dra. Sofía Ramírez", cedula: "12345678", passwordHash },
   });
 
-  // Limpia SOLO los datos de la cuenta demo (cascade borra consultas)
+  // Limpia SOLO los datos de la cuenta demo (cascade borra consultas y citas)
   await prisma.paciente.deleteMany({ where: { userId: user.id } });
   await prisma.solicitud.deleteMany({ where: { userId: user.id } });
 
-  // pacientes: [nombre, genero, edadAnios, email, objetivo, restricciones, consultas...]
+  // pacientes: [nombre, genero, edadAnios, email, telefono?, objetivo, restricciones, consultas...]
   // consulta: { d: díasAtrás, peso, altura, cintura?, cadera?, brazo?, grasa?, plan?: kcal, aprobado?: bool }
   //
   // Solo María Fernanda lleva cadera y brazo: es la serie larga con la que se prueban
   // las seis métricas de la gráfica de progreso. Al resto se le dejan en null a
   // propósito, para poder ver el estado vacío por métrica.
+  //
+  // Los teléfonos van en formatos distintos a propósito (con y sin lada, con +52,
+  // con guiones) para ejercitar la normalización a E.164 del recordatorio de
+  // WhatsApp. Ana Lucía se queda sin teléfono para ver el botón deshabilitado.
   const pacientes = [
     {
-      nombre: "María Fernanda López", genero: "FEMENINO", edad: 34, email: "maria.lopez@gmail.com",
+      nombre: "María Fernanda López", genero: "FEMENINO", edad: 34, email: "maria.lopez@gmail.com", telefono: "55 1234 5678",
       objetivo: "Pérdida de grasa gradual", restricciones: "alergia a nuez, intolerancia a lactosa, no come res",
       consultas: [
         { d: 155, peso: 78.1, altura: 165, cintura: 92, cadera: 108, brazo: 32, grasa: 34 },
@@ -106,7 +110,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Carlos Mendoza Ruiz", genero: "MASCULINO", edad: 41, email: "cmendoza@outlook.com",
+      nombre: "Carlos Mendoza Ruiz", genero: "MASCULINO", edad: 41, email: "cmendoza@outlook.com", telefono: "+52 55 9876 5432",
       objetivo: "Valoración inicial", restricciones: "Sin restricciones declaradas",
       consultas: [{ d: 1, peso: 92.3, altura: 178, cintura: 104, grasa: 28 }],
     },
@@ -119,7 +123,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Jorge Torres Peña", genero: "MASCULINO", edad: 55, email: "jtorres.pena@gmail.com",
+      nombre: "Jorge Torres Peña", genero: "MASCULINO", edad: 55, email: "jtorres.pena@gmail.com", telefono: "5523456789",
       objetivo: "Manejo de diabetes tipo 2", restricciones: "diabetes tipo 2, hipertensión",
       consultas: [
         { d: 90, peso: 98.0, altura: 176, cintura: 112, grasa: 32 },
@@ -127,7 +131,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Valentina Gómez", genero: "FEMENINO", edad: 26, email: "vale.gomez@hotmail.com",
+      nombre: "Valentina Gómez", genero: "FEMENINO", edad: 26, email: "vale.gomez@hotmail.com", telefono: "(55) 8765-4321",
       objetivo: "Rendimiento deportivo", restricciones: "no come cerdo",
       consultas: [
         { d: 45, peso: 58.0, altura: 163, cintura: 68, grasa: 22 },
@@ -135,7 +139,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Ricardo Díaz Osorio", genero: "MASCULINO", edad: 38, email: "ricardo.diaz@gmail.com",
+      nombre: "Ricardo Díaz Osorio", genero: "MASCULINO", edad: 38, email: "ricardo.diaz@gmail.com", telefono: "52 1 55 3344 5566",
       objetivo: "Aumento de masa muscular", restricciones: "Sin restricciones declaradas",
       consultas: [
         { d: 66, peso: 74.0, altura: 175, cintura: 82 },
@@ -145,6 +149,7 @@ async function main() {
   ];
 
   let totalConsultas = 0;
+  const idPorNombre = new Map();
   for (const p of pacientes) {
     const nac = new Date();
     nac.setFullYear(nac.getFullYear() - p.edad);
@@ -156,10 +161,12 @@ async function main() {
         fechaNacimiento: nac,
         genero: p.genero,
         email: p.email,
+        telefono: p.telefono ?? null,
         consentimientoAt: hace(200),
         createdAt: hace(200),
       },
     });
+    idPorNombre.set(p.nombre, paciente.id);
 
     for (const c of p.consultas) {
       const plan = c.plan ? construirPlan(c.plan) : null;
@@ -187,6 +194,62 @@ async function main() {
       });
       totalConsultas++;
     }
+  }
+
+  // ── Citas ────────────────────────────────────────────────────────────────
+  // Este script es .mjs y no puede importar lib/fechas.ts, así que replica su
+  // conversión a UTC. Si aquella cambia, cambiar también aquí.
+  const ZONA = "America/Mexico_City";
+
+  function desfaseMin(instante) {
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: ZONA, hour12: false,
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+      })
+        .formatToParts(instante)
+        .map((x) => [x.type, x.value])
+    );
+    const comoUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
+    return (comoUtc - instante.getTime()) / 60000;
+  }
+
+  /** Día relativo a hoy (en México) + hora local → el instante UTC que se guarda. */
+  function citaEn(diasDesdeHoy, hhmm) {
+    const hoy = new Intl.DateTimeFormat("en-CA", {
+      timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+    const [a, m, d] = hoy.split("-").map(Number);
+    const [h, min] = hhmm.split(":").map(Number);
+    const tentativo = Date.UTC(a, m - 1, d + diasDesdeHoy, h, min);
+    return new Date(tentativo - desfaseMin(new Date(tentativo)) * 60000);
+  }
+
+  // d = días desde hoy (negativo = pasado). La de Valentina a las 21:00 es la que
+  // delata un fallo de zona horaria: en un servidor UTC caería en el día siguiente.
+  const citas = [
+    { paciente: "María Fernanda López", d: 0, hora: "10:00", dur: 60, estado: "CONFIRMADA", notas: "Revisión de plan y ajuste de macros" },
+    { paciente: "Jorge Torres Peña", d: 0, hora: "13:30", dur: 45, estado: "PROGRAMADA" },
+    { paciente: "Ana Lucía Vargas", d: 1, hora: "09:00", dur: 60, estado: "PROGRAMADA", notas: "Primera revisión del plan vegetariano" },
+    { paciente: "Valentina Gómez", d: 2, hora: "21:00", dur: 45, estado: "PROGRAMADA", notas: "Cita nocturna: entrena por la tarde" },
+    { paciente: "Ricardo Díaz Osorio", d: 4, hora: "11:00", dur: 60, estado: "PROGRAMADA" },
+    { paciente: "Carlos Mendoza Ruiz", d: 9, hora: "16:00", dur: 90, estado: "PROGRAMADA", notas: "Valoración completa, viene acompañado" },
+    { paciente: "María Fernanda López", d: -7, hora: "10:00", dur: 60, estado: "COMPLETADA" },
+    { paciente: "Ricardo Díaz Osorio", d: -3, hora: "12:00", dur: 60, estado: "CANCELADA", notas: "Avisó que salía de viaje" },
+  ];
+
+  for (const c of citas) {
+    await prisma.cita.create({
+      data: {
+        userId: user.id,
+        pacienteId: idPorNombre.get(c.paciente),
+        inicioAt: citaEn(c.d, c.hora),
+        duracionMin: c.dur,
+        estado: c.estado,
+        notas: c.notas ?? null,
+      },
+    });
   }
 
   // Solicitudes de funcionalidad en distintos estados
@@ -232,7 +295,7 @@ async function main() {
 
   console.log("\n✅ Seed completado");
   console.log(`   Usuario demo: ${DEMO_EMAIL}  ·  contraseña: ${DEMO_PASSWORD}`);
-  console.log(`   ${pacientes.length} pacientes · ${totalConsultas} consultas · ${solicitudes.length} solicitudes`);
+  console.log(`   ${pacientes.length} pacientes · ${totalConsultas} consultas · ${citas.length} citas · ${solicitudes.length} solicitudes`);
   console.log("   Inicia sesión con esa cuenta para ver los datos.\n");
 }
 
