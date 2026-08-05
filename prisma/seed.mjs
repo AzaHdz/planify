@@ -89,16 +89,20 @@ async function main() {
   await prisma.solicitud.deleteMany({ where: { userId: user.id } });
 
   // pacientes: [nombre, genero, edadAnios, email, objetivo, restricciones, consultas...]
-  // consulta: { d: díasAtrás, peso, altura, cintura?, grasa?, plan?: kcal, aprobado?: bool }
+  // consulta: { d: díasAtrás, peso, altura, cintura?, cadera?, brazo?, grasa?, plan?: kcal, aprobado?: bool }
+  //
+  // Solo María Fernanda lleva cadera y brazo: es la serie larga con la que se prueban
+  // las seis métricas de la gráfica de progreso. Al resto se le dejan en null a
+  // propósito, para poder ver el estado vacío por métrica.
   const pacientes = [
     {
       nombre: "María Fernanda López", genero: "FEMENINO", edad: 34, email: "maria.lopez@gmail.com",
       objetivo: "Pérdida de grasa gradual", restricciones: "alergia a nuez, intolerancia a lactosa, no come res",
       consultas: [
-        { d: 155, peso: 78.1, altura: 165, cintura: 92, grasa: 34 },
-        { d: 120, peso: 76.0, altura: 165, cintura: 89, grasa: 33, plan: 1800, aprobado: true },
-        { d: 70, peso: 74.5, altura: 165, cintura: 86, grasa: 32, plan: 1800, aprobado: true },
-        { d: 16, peso: 72.4, altura: 165, cintura: 84, grasa: 31.2, plan: 1840, aprobado: false },
+        { d: 155, peso: 78.1, altura: 165, cintura: 92, cadera: 108, brazo: 32, grasa: 34 },
+        { d: 120, peso: 76.0, altura: 165, cintura: 89, cadera: 105.5, brazo: 31, grasa: 33, plan: 1800, aprobado: true },
+        { d: 70, peso: 74.5, altura: 165, cintura: 86, cadera: 103, brazo: 30.5, grasa: 32, plan: 1800, aprobado: true },
+        { d: 16, peso: 72.4, altura: 165, cintura: 84, cadera: 101, brazo: 29.5, grasa: 31.2, plan: 1840, aprobado: false },
       ],
     },
     {
@@ -166,6 +170,8 @@ async function main() {
           peso: c.peso,
           altura: c.altura,
           cintura: c.cintura ?? null,
+          cadera: c.cadera ?? null,
+          brazo: c.brazo ?? null,
           grasaCorporal: c.grasa ?? null,
           objetivos: p.objetivo,
           restricciones: p.restricciones,

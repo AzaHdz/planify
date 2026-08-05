@@ -8,9 +8,25 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonVariants } from "@/components/ui/Button";
-import { WeightSparkline } from "@/components/WeightSparkline";
+import { ProgresoChart, type SerieMetrica } from "@/components/ProgresoChart";
 
 const rangoText = { in: "text-range-in", out: "text-range-out", critical: "text-range-critical" } as const;
+
+/** Métricas graficables. El IMC no se persiste: se calcula por consulta. Las medidas
+ *  opcionales devuelven null y esa consulta se omite de la serie (no se interpola). */
+const METRICAS: {
+  key: string;
+  label: string;
+  unidad: string;
+  valor: (c: { peso: number; altura: number; grasaCorporal: number | null; cintura: number | null; cadera: number | null; brazo: number | null }) => number | null;
+}[] = [
+  { key: "peso", label: "Peso", unidad: "kg", valor: (c) => c.peso },
+  { key: "imc", label: "IMC", unidad: "", valor: (c) => imc(c.peso, c.altura) },
+  { key: "grasa", label: "% grasa", unidad: "%", valor: (c) => c.grasaCorporal },
+  { key: "cintura", label: "Cintura", unidad: "cm", valor: (c) => c.cintura },
+  { key: "cadera", label: "Cadera", unidad: "cm", valor: (c) => c.cadera },
+  { key: "brazo", label: "Brazo", unidad: "cm", valor: (c) => c.brazo },
+];
 
 export default async function PacientePage({
   params,
@@ -31,6 +47,21 @@ export default async function PacientePage({
   const previa = consultas[1];
   const asc = [...consultas].reverse();
   const conPlan = consultas.filter((c) => c.planFinal).length;
+
+  // Series para la gráfica: se arman aquí para que al cliente solo viajen datos
+  // planos serializables. `t` es el timestamp, no el índice: el eje X es
+  // proporcional al tiempo transcurrido entre consultas.
+  const series: SerieMetrica[] = METRICAS.map((m) => ({
+    key: m.key,
+    label: m.label,
+    unidad: m.unidad,
+    puntos: asc.flatMap((c) => {
+      const valor = m.valor(c);
+      return valor == null
+        ? []
+        : [{ t: c.createdAt.getTime(), fecha: fechaCorta(c.createdAt), valor }];
+    }),
+  }));
 
   const restricciones =
     ultima?.restricciones && ultima.restricciones !== "Sin restricciones declaradas"
@@ -116,16 +147,10 @@ export default async function PacientePage({
           {/* Izquierda */}
           <div className="flex flex-col gap-4">
             <Card className="p-5">
-              <div className="flex items-baseline justify-between">
-                <span className="font-display text-[15px] font-bold text-text">Evolución de peso</span>
-                <span className="text-xs text-text-3">
-                  {asc.length > 0 && `${fechaCorta(asc[0].createdAt)} – ${fechaCorta(asc[asc.length - 1].createdAt)}`}
-                </span>
-              </div>
-              <WeightSparkline
-                className="mt-3"
-                puntos={asc.map((c) => ({ peso: c.peso, etiqueta: fechaCorta(c.createdAt) }))}
-              />
+              <div className="font-display text-[15px] font-bold text-text">Progreso</div>
+              {/* El rango de fechas ya no va en el header: la gráfica rotula sus
+                  propios extremos bajo el eje X. */}
+              <ProgresoChart series={series} />
             </Card>
 
             <Card className="p-5">
