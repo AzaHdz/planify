@@ -131,6 +131,14 @@ export default async function PacientePage({
           )}
         </div>
         <div className="flex gap-2.5">
+          {/* Ghost y no secondary: con tres acciones en el encabezado, editar los
+              datos es la menos frecuente y no debe competir con las otras dos. */}
+          <Link
+            href={`/pacientes/${paciente.id}/editar`}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            Editar datos
+          </Link>
           <Link
             href={`/agenda/nueva?paciente=${paciente.id}`}
             className={buttonVariants({ variant: "secondary", size: "sm" })}
@@ -223,6 +231,43 @@ export default async function PacientePage({
                 ))}
               </Card>
             )}
+
+            {/* La spec de PLAN-2 pedía solo las notas. Se muestra también el contacto
+                porque el teléfono alimenta el recordatorio de la agenda y hasta ahora
+                no había forma de saber si el paciente tenía uno registrado. */}
+            <Card className="overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <span className="font-display text-[15px] font-bold text-text">Contacto y notas</span>
+                <Link
+                  href={`/pacientes/${paciente.id}/editar`}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Editar
+                </Link>
+              </div>
+              <dl className="px-5 py-3.5 text-[13px]">
+                <div className="flex gap-2">
+                  <dt className="w-20 shrink-0 text-text-3">Email</dt>
+                  <dd className="min-w-0 break-words text-text-2">{paciente.email ?? "—"}</dd>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <dt className="w-20 shrink-0 text-text-3">Teléfono</dt>
+                  <dd className="min-w-0 break-words text-text-2">
+                    {paciente.telefono ?? (
+                      <span className="text-text-3">Sin registrar</span>
+                    )}
+                  </dd>
+                </div>
+                {paciente.notas && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
+                      Notas
+                    </dt>
+                    <dd className="mt-1 whitespace-pre-wrap text-text-2">{paciente.notas}</dd>
+                  </div>
+                )}
+              </dl>
+            </Card>
 
             <Card className="overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-5 py-4">

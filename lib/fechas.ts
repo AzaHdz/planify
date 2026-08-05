@@ -116,6 +116,16 @@ export function nombreDelMes(anio: number, mes: number): string {
   );
 }
 
+/** "YYYY-MM-DD" para precargar un `<input type="date">`.
+ *
+ *  Se lee en UTC a propósito: un input date envía "1992-03-15", que `z.coerce.date()`
+ *  convierte en medianoche UTC. Leerlo en otra zona lo correría un día hacia atrás.
+ *  Esto vale para fechas de calendario puras (fecha de nacimiento), no para instantes
+ *  con hora como `Cita.inicioAt` — esos usan `claveDia`. */
+export function fechaParaInput(d: Date): string {
+  return `${d.getUTCFullYear()}-${dosDigitos(d.getUTCMonth() + 1)}-${dosDigitos(d.getUTCDate())}`;
+}
+
 export type CeldaDia = { clave: string; dia: number; delMes: boolean };
 
 /** Las 6 semanas de la rejilla, de lunes a domingo, incluyendo los días de relleno
