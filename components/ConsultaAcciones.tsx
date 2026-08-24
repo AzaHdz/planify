@@ -138,33 +138,41 @@ export function AprobarButton({
     );
   }
 
+  const aprobar = (confirmar: boolean) => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const r = await aprobarConsulta(consultaId, { confirmar });
+        setAdvertencias(r.aprobado ? [] : r.advertencias);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error al aprobar");
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      <Button
-        variant="secondary"
-        disabled={pending}
-        onClick={() => {
-          setError(null);
-          startTransition(async () => {
-            try {
-              const r = await aprobarConsulta(consultaId);
-              setAdvertencias(r?.advertencias ?? []);
-            } catch (e) {
-              setError(e instanceof Error ? e.message : "Error al aprobar");
-            }
-          });
-        }}
-      >
+      <Button variant="secondary" disabled={pending} onClick={() => aprobar(false)}>
         {pending ? "Validando…" : "Aprobar plan"}
       </Button>
       {advertencias.length > 0 && (
         <div className="rounded-card border border-warning-brd bg-warning-soft p-3 text-sm text-warning">
-          <p className="font-medium">El plan se aprobó, pero la validación numérica encontró:</p>
+          <p className="font-medium">El plan no se aprobó: la validación numérica encontró…</p>
           <ul className="mt-1 list-disc pl-5">
             {advertencias.map((a, i) => (
               <li key={i}>{a}</li>
             ))}
           </ul>
+          <p className="mt-2">Corrige el plan, o aprueba bajo tu criterio profesional:</p>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+            disabled={pending}
+            onClick={() => aprobar(true)}
+          >
+            Aprobar de todas formas
+          </Button>
         </div>
       )}
       {error && <p className="text-sm text-danger">{error}</p>}

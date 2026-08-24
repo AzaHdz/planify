@@ -165,7 +165,10 @@ export async function guardarPlanFinal(consultaId: string, planJson: string) {
   revalidatePath(`/consultas/${consultaId}`);
 }
 
-export async function aprobarConsulta(consultaId: string) {
+export async function aprobarConsulta(
+  consultaId: string,
+  opts?: { confirmar?: boolean }
+) {
   const { userId } = await requireUser();
 
   const consulta = await prisma.consulta.findFirst({
@@ -184,11 +187,17 @@ export async function aprobarConsulta(consultaId: string) {
     genero: consulta.paciente.genero,
   });
 
+  // Con advertencias, aprobar exige confirmación explícita: el criterio del
+  // nutriólogo puede ganarle al validador, pero nunca por accidente.
+  if (advertencias.length > 0 && !opts?.confirmar) {
+    return { aprobado: false as const, advertencias };
+  }
+
   await prisma.consulta.update({
     where: { id: consulta.id },
     data: { aprobadoAt: new Date() },
   });
 
   revalidatePath(`/consultas/${consultaId}`);
-  return { advertencias };
+  return { aprobado: true as const, advertencias };
 }
