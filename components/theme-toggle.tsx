@@ -1,23 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-/** Botón sol/luna: alterna la clase .dark en <html> y persiste en localStorage.
- *  El estado inicial ya lo fija el script no-flash de app/layout.tsx. */
+/** La fuente de verdad del tema es la clase .dark en <html> (la fija el script
+ *  no-flash de app/layout.tsx), así que se lee como store externo: el observer
+ *  re-renderiza cuando la clase cambia, venga de donde venga. */
+function suscribirTema(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
+
+/** Botón sol/luna: alterna la clase .dark en <html> y persiste en localStorage. */
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-    setMounted(true);
-  }, []);
+  // En el servidor no hay tema: false, y tras hidratar se corrige solo.
+  const dark = useSyncExternalStore(
+    suscribirTema,
+    () => document.documentElement.classList.contains("dark"),
+    () => false
+  );
 
   function toggle() {
     const next = !document.documentElement.classList.contains("dark");
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
-    setDark(next);
   }
 
   return (
@@ -28,8 +34,7 @@ export function ThemeToggle() {
       title={dark ? "Modo claro" : "Modo oscuro"}
       className="inline-flex size-9 items-center justify-center rounded-pill border border-border-strong bg-surface text-text-2 transition-colors hover:bg-surface-3 hover:text-text"
     >
-      {/* Evita mismatch de hidratación: el icono definitivo aparece tras montar */}
-      {mounted && dark ? <SunIcon /> : <MoonIcon />}
+      {dark ? <SunIcon /> : <MoonIcon />}
     </button>
   );
 }

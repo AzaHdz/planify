@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { EstadoSolicitud, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { LIMITES_TIER } from "@/lib/limits";
 import {

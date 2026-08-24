@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   generarPlanAction,
   guardarPlanFinal,
@@ -66,8 +66,13 @@ export function PlanEditorJson({
   const [pending, startTransition] = useTransition();
   const [mensaje, setMensaje] = useState<string | null>(null);
 
-  // Re-sincroniza con el plan vigente cuando cambia desde el editor visual.
-  useEffect(() => setValor(planJson), [planJson]);
+  // Re-sincroniza con el plan vigente cuando cambia desde el editor visual
+  // (ajuste durante el render, no en un efecto: evita el render en cascada).
+  const [planJsonPrevio, setPlanJsonPrevio] = useState(planJson);
+  if (planJsonPrevio !== planJson) {
+    setPlanJsonPrevio(planJson);
+    setValor(planJson);
+  }
 
   return (
     <div className="rounded-card border border-border bg-surface">

@@ -7,7 +7,7 @@ import { resumenPlan } from "@/lib/plan";
 import { guardarPlanFinal } from "@/app/actions/consultas";
 import { Card } from "@/components/ui/Card";
 import { MacroBar } from "@/components/ui/MacroBar";
-import { Input, Textarea } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Input";
 import { PlanEditorJson } from "@/components/ConsultaAcciones";
 
 type Estado = "idle" | "guardando" | "guardado" | "invalido" | "error";
@@ -61,17 +61,18 @@ export function PlanEditor({
   const [estado, setEstado] = useState<Estado>("idle");
   const tocado = useRef(false);
 
-  // Autoguardado con debounce
+  // Autoguardado con debounce. Validación y estados dentro del timeout: así el
+  // efecto no hace setState síncrono (render en cascada) y "inválido" no
+  // parpadea a media escritura.
   useEffect(() => {
     if (!tocado.current) return;
-    const limpio = limpiar(plan);
-    const parsed = PlanSchema.safeParse(limpio);
-    if (!parsed.success) {
-      setEstado("invalido");
-      return;
-    }
-    setEstado("guardando");
     const t = setTimeout(async () => {
+      const parsed = PlanSchema.safeParse(limpiar(plan));
+      if (!parsed.success) {
+        setEstado("invalido");
+        return;
+      }
+      setEstado("guardando");
       try {
         await guardarPlanFinal(consultaId, JSON.stringify(parsed.data));
         setEstado("guardado");
@@ -277,11 +278,14 @@ function NumberField({
   const [str, setStr] = useState(Number.isFinite(value) ? String(value) : "");
   const invalido = str.trim() === "" || Number.isNaN(Number(str));
 
-  // Refleja cambios externos (p. ej. reset desde JSON avanzado)
-  useEffect(() => {
+  // Refleja cambios externos (p. ej. reset desde JSON avanzado) durante el
+  // render; el guard evita pisar lo que el usuario está tecleando.
+  // Object.is: value puede ser NaN y `NaN !== NaN` re-ajustaría en cada render.
+  const [valuePrevio, setValuePrevio] = useState(value);
+  if (!Object.is(valuePrevio, value)) {
+    setValuePrevio(value);
     if (Number.isFinite(value) && Number(str) !== value) setStr(String(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
 
   return (
     <label className="flex flex-col gap-1">
