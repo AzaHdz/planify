@@ -101,6 +101,7 @@ async function main() {
   const pacientes = [
     {
       nombre: "María Fernanda López", genero: "FEMENINO", edad: 34, email: "maria.lopez@gmail.com", telefono: "55 1234 5678",
+      notas: "Prefiere consultas por la tarde. La alergia a la nuez está confirmada por su alergólogo.",
       objetivo: "Pérdida de grasa gradual", restricciones: "alergia a nuez, intolerancia a lactosa, no come res",
       consultas: [
         { d: 155, peso: 78.1, altura: 165, cintura: 92, cadera: 108, brazo: 32, grasa: 34 },
@@ -146,6 +147,17 @@ async function main() {
         { d: 30, peso: 76.5, altura: 175, cintura: 83, plan: 2600, aprobado: true },
       ],
     },
+    {
+      // Recién dada de alta: sin consultas todavía, pero con cita agendada. Cubre
+      // tres estados que ningún otro paciente produce — expediente sin consultas,
+      // paciente sin email, y un teléfono que no se puede normalizar a E.164
+      // (el campo es texto libre y la gente escribe cosas así).
+      nombre: "Sofía Herrera Luna", genero: "FEMENINO", edad: 31, email: null,
+      telefono: "pendiente, preguntar en recepción",
+      notas: "Referida por Valentina Gómez. Pidió cita de valoración; aún sin consulta.",
+      objetivo: "Valoración inicial", restricciones: "Sin restricciones declaradas",
+      consultas: [],
+    },
   ];
 
   let totalConsultas = 0;
@@ -160,8 +172,9 @@ async function main() {
         nombre: p.nombre,
         fechaNacimiento: nac,
         genero: p.genero,
-        email: p.email,
+        email: p.email ?? null,
         telefono: p.telefono ?? null,
+        notas: p.notas ?? null,
         consentimientoAt: hace(200),
         createdAt: hace(200),
       },
@@ -234,6 +247,11 @@ async function main() {
     { paciente: "Ana Lucía Vargas", d: 1, hora: "09:00", dur: 60, estado: "PROGRAMADA", notas: "Primera revisión del plan vegetariano" },
     { paciente: "Valentina Gómez", d: 2, hora: "21:00", dur: 45, estado: "PROGRAMADA", notas: "Cita nocturna: entrena por la tarde" },
     { paciente: "Ricardo Díaz Osorio", d: 4, hora: "11:00", dur: 60, estado: "PROGRAMADA" },
+    // Día lleno: con 4 citas la celda solo muestra 3 y aparece el chip "+1 más"
+    { paciente: "Sofía Herrera Luna", d: 3, hora: "09:00", dur: 60, estado: "PROGRAMADA", notas: "Valoración inicial" },
+    { paciente: "María Fernanda López", d: 3, hora: "10:30", dur: 45, estado: "CONFIRMADA" },
+    { paciente: "Jorge Torres Peña", d: 3, hora: "12:00", dur: 45, estado: "PROGRAMADA" },
+    { paciente: "Ana Lucía Vargas", d: 3, hora: "16:30", dur: 60, estado: "PROGRAMADA" },
     { paciente: "Carlos Mendoza Ruiz", d: 9, hora: "16:00", dur: 90, estado: "PROGRAMADA", notas: "Valoración completa, viene acompañado" },
     { paciente: "María Fernanda López", d: -7, hora: "10:00", dur: 60, estado: "COMPLETADA" },
     { paciente: "Ricardo Díaz Osorio", d: -3, hora: "12:00", dur: 60, estado: "CANCELADA", notas: "Avisó que salía de viaje" },

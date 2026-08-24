@@ -165,14 +165,18 @@ export default async function PacientePage({
         </span>
       </div>
 
-      {consultas.length === 0 ? (
-        <p className="rounded-card border border-dashed border-border-strong p-8 text-center text-sm text-text-3">
-          Sin consultas registradas. Crea la primera para ver la evolución.
-        </p>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-          {/* Izquierda */}
-          <div className="flex flex-col gap-4">
+      {/* La columna derecha va siempre: un paciente recién dado de alta no tiene
+          consultas todavía, pero sí datos de contacto, notas y puede tener cita
+          agendada. Antes todo el cuerpo colgaba del else y quedaba invisible. */}
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        {/* Izquierda */}
+        <div className="flex flex-col gap-4">
+          {consultas.length === 0 ? (
+            <p className="rounded-card border border-dashed border-border-strong p-8 text-center text-sm text-text-3">
+              Sin consultas registradas. Crea la primera para ver la evolución.
+            </p>
+          ) : (
+            <>
             <Card className="p-5">
               <div className="font-display text-[15px] font-bold text-text">Progreso</div>
               {/* El rango de fechas ya no va en el header: la gráfica rotula sus
@@ -205,6 +209,8 @@ export default async function PacientePage({
                 ))}
               </div>
             </Card>
+            </>
+          )}
           </div>
 
           {/* Derecha: próximas citas + historial */}
@@ -273,6 +279,9 @@ export default async function PacientePage({
               <div className="flex items-center justify-between border-b border-border px-5 py-4">
                 <span className="font-display text-[15px] font-bold text-text">Historial de consultas</span>
               </div>
+              {consultas.length === 0 && (
+                <p className="px-5 py-8 text-center text-sm text-text-3">Todavía sin consultas.</p>
+              )}
               {consultas.map((c, i) => (
                 <Link
                   key={c.id}
@@ -304,8 +313,7 @@ export default async function PacientePage({
               ))}
             </Card>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
