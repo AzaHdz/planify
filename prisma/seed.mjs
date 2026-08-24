@@ -201,6 +201,7 @@ async function main() {
           modeloIA: plan ? "seed-demo" : null,
           inputTokens: plan ? 1200 : null,
           outputTokens: plan ? 2400 : null,
+          generaciones: plan ? 1 : 0,
           aprobadoAt: c.aprobado ? hace(c.d) : null,
           createdAt: hace(c.d),
         },

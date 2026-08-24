@@ -8,7 +8,11 @@ import { requireUser } from "@/lib/auth";
 import { generarPlan } from "@/lib/ai/generarPlan";
 import { PlanAlimenticio } from "@/lib/ai/planSchema";
 import { edadEnAnios, validarPlan } from "@/lib/calculos";
-import { LIMITES_TIER, consultasUsadasEsteMes } from "@/lib/limits";
+import {
+  LIMITES_TIER,
+  MAX_GENERACIONES_POR_CONSULTA,
+  consultasUsadasEsteMes,
+} from "@/lib/limits";
 
 const ConsultaInput = z.object({
   pacienteId: z.string().min(1),
@@ -29,8 +33,7 @@ function num(v: number | "" | undefined): number | null {
 export async function crearConsulta(formData: FormData) {
   const { userId, tier } = await requireUser();
 
-  // Cuota mensual del tier. Regenerar plan (generarPlanAction) no consume
-  // cuota en este MVP; si en beta se abusa, aplicar el mismo check allá.
+  // Cuota mensual del tier; generarPlanAction aplica sus propios topes.
   // Los errores se devuelven como valor (no throw) para que el formulario
   // los muestre; un throw en producción se enmascara como 500 genérico.
   const limite = LIMITES_TIER[tier].consultasMes;
@@ -79,13 +82,34 @@ export async function crearConsulta(formData: FormData) {
 }
 
 export async function generarPlanAction(consultaId: string) {
-  const { userId } = await requireUser();
+  const { userId, tier } = await requireUser();
 
   const consulta = await prisma.consulta.findFirst({
     where: { id: consultaId, userId },
     include: { paciente: true, user: { select: { estiloPrompt: true } } },
   });
   if (!consulta) throw new Error("Consulta no encontrada");
+
+  // Cada llamada a la IA cuesta tokens reales, así que aquí sí hay topes.
+  if (consulta.generaciones >= MAX_GENERACIONES_POR_CONSULTA) {
+    return {
+      ok: false as const,
+      error: `Esta consulta ya usó sus ${MAX_GENERACIONES_POR_CONSULTA} generaciones de plan. Ajusta el plan con el editor.`,
+    };
+  }
+  // La primera generación no revisa la cuota mensual: pertenece a una consulta
+  // que ya pasó ese check al crearse (bloquearla dejaría a la última consulta
+  // permitida del mes sin plan). Regenerar sí la respeta.
+  const limite = LIMITES_TIER[tier].consultasMes;
+  if (consulta.generaciones >= 1 && limite !== null) {
+    const usadas = await consultasUsadasEsteMes(userId);
+    if (usadas >= limite) {
+      return {
+        ok: false as const,
+        error: `Alcanzaste el límite de ${limite} consultas de tu plan ${LIMITES_TIER[tier].nombre} este mes, así que regenerar planes queda pausado hasta el día 1. Puedes seguir editando el plan actual.`,
+      };
+    }
+  }
 
   const resultado = await generarPlan(
     {
@@ -114,11 +138,13 @@ export async function generarPlanAction(consultaId: string) {
       modeloIA: resultado.modelo,
       inputTokens: resultado.inputTokens,
       outputTokens: resultado.outputTokens,
+      generaciones: { increment: 1 },
       aprobadoAt: null, // regenerar invalida la aprobación previa
     },
   });
 
   revalidatePath(`/consultas/${consultaId}`);
+  return { ok: true as const };
 }
 
 export async function guardarPlanFinal(consultaId: string, planJson: string) {

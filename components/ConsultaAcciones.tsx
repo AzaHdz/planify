@@ -28,7 +28,8 @@ export function GenerarPlanButton({
           setError(null);
           startTransition(async () => {
             try {
-              await generarPlanAction(consultaId);
+              const r = await generarPlanAction(consultaId);
+              if (!r.ok) setError(r.error);
             } catch (e) {
               setError(e instanceof Error ? e.message : "Error al generar el plan");
             }
