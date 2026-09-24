@@ -100,7 +100,7 @@ async function main() {
   // WhatsApp. Ana Lucía se queda sin teléfono para ver el botón deshabilitado.
   const pacientes = [
     {
-      nombre: "María Fernanda López", genero: "FEMENINO", edad: 34, email: "maria.lopez@gmail.com", telefono: "55 1234 5678",
+      nombre: "María Fernanda López", genero: "FEMENINO", edad: 34, email: "maria.lopez@example.com", telefono: "55 0000 0001",
       notas: "Prefiere consultas por la tarde. La alergia a la nuez está confirmada por su alergólogo.",
       objetivo: "Pérdida de grasa gradual", restricciones: "alergia a nuez, intolerancia a lactosa, no come res",
       consultas: [
@@ -111,12 +111,12 @@ async function main() {
       ],
     },
     {
-      nombre: "Carlos Mendoza Ruiz", genero: "MASCULINO", edad: 41, email: "cmendoza@outlook.com", telefono: "+52 55 9876 5432",
+      nombre: "Carlos Mendoza Ruiz", genero: "MASCULINO", edad: 41, email: "cmendoza@example.com", telefono: "+52 55 0000 0002",
       objetivo: "Valoración inicial", restricciones: "Sin restricciones declaradas",
       consultas: [{ d: 1, peso: 92.3, altura: 178, cintura: 104, grasa: 28 }],
     },
     {
-      nombre: "Ana Lucía Vargas", genero: "FEMENINO", edad: 29, email: "analu.vargas@gmail.com",
+      nombre: "Ana Lucía Vargas", genero: "FEMENINO", edad: 29, email: "analu.vargas@example.com",
       objetivo: "Control de peso", restricciones: "vegetariana",
       consultas: [
         { d: 60, peso: 63.0, altura: 168, cintura: 76, grasa: 26 },
@@ -124,7 +124,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Jorge Torres Peña", genero: "MASCULINO", edad: 55, email: "jtorres.pena@gmail.com", telefono: "5523456789",
+      nombre: "Jorge Torres Peña", genero: "MASCULINO", edad: 55, email: "jtorres.pena@example.com", telefono: "5500000003",
       objetivo: "Manejo de diabetes tipo 2", restricciones: "diabetes tipo 2, hipertensión",
       consultas: [
         { d: 90, peso: 98.0, altura: 176, cintura: 112, grasa: 32 },
@@ -132,7 +132,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Valentina Gómez", genero: "FEMENINO", edad: 26, email: "vale.gomez@hotmail.com", telefono: "(55) 8765-4321",
+      nombre: "Valentina Gómez", genero: "FEMENINO", edad: 26, email: "vale.gomez@example.com", telefono: "(55) 0000-0004",
       objetivo: "Rendimiento deportivo", restricciones: "no come cerdo",
       consultas: [
         { d: 45, peso: 58.0, altura: 163, cintura: 68, grasa: 22 },
@@ -140,7 +140,7 @@ async function main() {
       ],
     },
     {
-      nombre: "Ricardo Díaz Osorio", genero: "MASCULINO", edad: 38, email: "ricardo.diaz@gmail.com", telefono: "52 1 55 3344 5566",
+      nombre: "Ricardo Díaz Osorio", genero: "MASCULINO", edad: 38, email: "ricardo.diaz@example.com", telefono: "52 1 55 0000 0005",
       objetivo: "Aumento de masa muscular", restricciones: "Sin restricciones declaradas",
       consultas: [
         { d: 66, peso: 74.0, altura: 175, cintura: 82 },

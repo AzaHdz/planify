@@ -1,52 +1,61 @@
-# Planify — MVP (Fase 1)
+# Planify
 
-SaaS para nutriólogos: expedientes, consultas y planes alimenticios generados con IA
-(revisados y aprobados por el profesional antes de exportarse).
+Multi-tenant SaaS for nutritionists: patient records, consultations, and **AI-generated meal plans that a professional reviews and approves before they reach the patient**.
 
-Guía completa del proyecto: `../MANUAL_DESARROLLO.md`.
+> UI and domain vocabulary are in Spanish (target market: Mexico). Code comments are mostly Spanish too.
+
+## Why it's built this way
+
+The AI never has the last word. Every plan goes through a human-in-the-loop flow:
+
+```
+consultation data ──► LLM (structured output) ──► Zod validation ──► clinical checks ──► nutritionist edits ──► approve ──► PDF
+                          OpenAI | Anthropic        same schema      Mifflin-St Jeor       (draft until          (export only
+                                                                     arithmetic warnings    approved)             if approved)
+```
+
+- **Provider-agnostic AI layer.** `lib/ai/generarPlan.ts` dispatches to `lib/ai/providers/{openai,anthropic}.ts` based on `AI_PROVIDER`. Both use the same prompt and are validated against the **same Zod schema** (`lib/ai/planSchema.ts`), so switching providers is a config change, not a code change.
+- **Versioned prompts with few-shot examples.** `lib/ai/prompts/plan-v2.ts` + `lib/ai/prompts/ejemplos/`. The examples are validated against the schema at import time: if the schema drifts, the build fails instead of silently degrading the prompt. The static prefix (system + few-shots) is kept stable for prompt caching.
+- **Auditability.** Each consultation stores `promptVersion`, `modeloIA`, `inputTokens`, and `outputTokens`.
+- **Clinical guardrails.** On approval, `lib/calculos.ts` checks the plan's energy and macros against Mifflin-St Jeor BMR and the activity factor; warnings require explicit confirmation.
+- **Cost control.** A hard cap of 3 AI generations per consultation plus monthly per-tier quotas, cut over in Mexico City time even though the server runs in UTC (`lib/limits.ts`).
+- **Data minimization.** Only clinical data is sent to the model, never the patient's identity.
+- **Multi-tenancy.** Every Prisma query is scoped by `userId` (`requireUser()` in `lib/auth.ts`).
+
+Also included: patient progress charts, an appointment calendar with WhatsApp reminder links, password recovery, an admin area (accounts, tiers), and a feature-request inbox where `scripts/analizar-solicitudes.mjs` runs Claude Code headless (read-only) over this repo to draft a feasibility verdict. Drafts are reviewed in `/admin/solicitudes` before anything is sent.
 
 ## Stack
 
-Next.js 16 (App Router) · React 19 · Tailwind 4 · Prisma 6 + PostgreSQL · Auth.js v5
-(email+contraseña; Google OAuth y magic link activables por env) · IA conmutable:
-OpenAI (`gpt-5-mini`, por defecto) o Claude (`claude-sonnet-5`), ambas con salidas
-estructuradas validadas por el mismo schema Zod (`lib/ai/planSchema.ts`).
+Next.js 16 (App Router, Server Actions) · React 19 · Tailwind 4 · Prisma 6 + PostgreSQL · Auth.js v5 (email + password; Google OAuth and magic link enabled by env) · OpenAI / Anthropic SDKs · Zod 4 · Resend.
 
-## Setup local
+## Running locally
 
-1. **Base de datos** — cualquiera de las dos:
-   - Postgres de Homebrew ya corriendo (la config actual de `.env.local` apunta ahí), o
-   - `docker compose up -d` y cambia `DATABASE_URL` a `postgresql://planify:planify@localhost:5432/planify`.
+Requires Node 22+ and Docker (or any local Postgres).
 
-2. **Variables de entorno** — copia `.env.example` a `.env.local` (ya existe una con la DB local
-   y `AUTH_SECRET` generado) y completa:
-   - `OPENAI_API_KEY` — necesario para generar planes (proveedor por defecto, `AI_PROVIDER=openai`).
-   - Para cambiar a Claude: pon `ANTHROPIC_API_KEY` y `AI_PROVIDER=anthropic`.
-   - Login: email + contraseña funciona sin configuración extra (regístrate en `/registro`).
-     Google OAuth (`AUTH_GOOGLE_ID/SECRET`) y magic link (`AUTH_RESEND_KEY`) son opcionales
-     y se activan solos al definir sus variables.
+```bash
+npm install
+docker compose up -d                 # Postgres 16 on :5432
+cp .env.example .env                 # then set AUTH_SECRET and OPENAI_API_KEY (or ANTHROPIC_API_KEY)
+touch .env.local                     # optional overrides; the npm scripts expect the file to exist
+npx prisma migrate dev
+npm run db:seed                      # demo account: demo@planify.health / planify123
+npm run dev                          # http://localhost:3000
+```
 
-3. **Migraciones y arranque:**
+See `.env.example` for every variable and its default.
 
-   ```bash
-   npx prisma migrate dev
-   npm run dev
-   ```
+### Main flow
 
-## Flujo del MVP
+Sign up (`/registro`) → add a patient (with data-consent) → new consultation (anthropometrics, goals, restrictions) → **Generate plan with AI** → review/edit → **Approve** (runs clinical checks) → export PDF (`/consultas/[id]/imprimir`).
 
-registro (`/registro`, abierto por ahora — cerrarlo o pasar a invitaciones en Fase 4) → login → /pacientes (alta con consentimiento de datos) → nueva consulta (antropometría +
-objetivos + restricciones) → "Generar plan con IA" → revisar/editar → "Aprobar plan"
-(corre validación aritmética Mifflin-St Jeor en `lib/calculos.ts`) → Exportar PDF
-(`/consultas/[id]/imprimir`, vista de impresión del navegador).
+## Project layout
 
-## Reglas del código
-
-- **Multi-tenant:** toda query de Prisma filtra por `userId` (ver `requireUser()` en `lib/auth.ts`).
-- **Minimización de datos:** a la IA solo viajan datos clínicos, nunca la identidad del paciente
-  (`lib/ai/generarPlan.ts`).
-- **Prompts versionados:** `lib/ai/prompts/plan-v1.ts`; cada consulta guarda `promptVersion`,
-  `modeloIA` y tokens.
-- **Proveedor de IA conmutable:** `lib/ai/generarPlan.ts` despacha a `lib/ai/providers/{openai,anthropic}.ts`
-  según `AI_PROVIDER`; ambos usan el mismo prompt y el mismo schema.
-- El PDF solo se exporta si `aprobadoAt != null`.
+```
+app/(app)/        authenticated pages: pacientes, consultas, agenda, planes, admin, ajustes
+app/actions/      server actions (all tenant-scoped)
+lib/ai/           provider dispatch, providers, Zod plan schema, versioned prompts + few-shot examples
+lib/calculos.ts   BMI / BMR (Mifflin-St Jeor) and plan validation
+lib/limits.ts     tiers, monthly quotas, per-consultation generation cap
+prisma/           schema, migrations, demo seed
+scripts/          feature-request export and AI feasibility analysis
+```
